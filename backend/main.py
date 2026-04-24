@@ -24,6 +24,34 @@ hf_volume = modal.Volume.from_name("qwen-hf-cache", create_if_missing=True)
 
 swara_gen_secrets = modal.Secret.from_name("swara-gen-secret")
 
+
+class AudioGeneralBase(BaseModel):
+    audio_duration: float = 15.0
+    seed : int = -1
+    guidance_scale : float = 15.0
+    infer_step : int = 60
+    instrumental: bool = False
+
+
+class GenerateFromDescriptionRequest(AudioGeneralBase):
+    full_described_song : str
+
+
+class GenerateWithLyricsRequest(AudioGeneralBase):
+    prompt: str
+    lyrics: str
+
+
+class GenerateWithDescribedLyricsRequest(AudioGeneralBase):
+    prompt: str
+    described_lyrics : str
+
+
+class GenerateMusicResponseS3(BaseModel):
+    s3_key: str
+    cover_image_s3_key: str
+    categories: List[str]
+
 class GenerateMusicResponse(BaseModel):
     audio_data : str
 
@@ -89,6 +117,22 @@ class MusicGenServer:
         os.remove(output_path)
 
         return GenerateMusicResponse(audio_data=audio_b64)
+    
+
+    @modal.fastapi_endpoint(method="POST")
+    def generate_from_description(self, request : GenerateFromDescriptionRequest) -> GenerateMusicResponseS3:
+        pass
+
+    
+    @modal.fastapi_endpoint(method="POST")
+    def generate_with_lyrics(self, request : GenerateWithLyricsRequest) -> GenerateMusicResponseS3:
+        pass
+
+    
+    @modal.fastapi_endpoint(method="POST")
+    def generate_with_described_lyrics(self, request : GenerateWithDescribedLyricsRequest) -> GenerateMusicResponseS3:
+        pass
+
 
 @app.local_entrypoint()
 def main():
