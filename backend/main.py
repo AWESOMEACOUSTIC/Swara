@@ -139,6 +139,67 @@ class MusicGenServer:
         #Run LLM inference and return the generated prompt
         return self.prompt_qwen(full_prompt)
 
+    
+    def generate_categories(self, description : str) -> List[str]:
+        prompt = f"Based on the following description, infer the music categories (e.g., hip-hop, rock, pop, indie, jazz, classical, electronic, country, reggae, blues) that best fit the described song. Description: {description}. Categories:"
+        response_text = self.prompt_qwen(prompt)
+        categories = [cat.strip() for cat in response_text.split(",") if cat.strip()]
+        return categories
+
+    def generate_and_upload_to_s3(
+            self, 
+            prompt : str, 
+            lyrics : str,
+            instrumental : bool,
+            audio_duration : float,
+            infer_step : int,
+            guidance_scale : float,
+            seed : int,
+            description_for_categorization : str
+        ) -> GenerateMusicResponseS3 :
+        final_lyrics = "instrumental" if instrumental else lyrics
+        print("Generated Lyrics: , \n{final_lyrics}")
+        print("Prompt: \n{prompt}")
+
+        s3_client = boto3.client("s3")
+        bucket_name = os.environ.get("S3_BUCKET_NAME")
+        output_dir = "/temp/outputs"
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{uuid.uuid4()}.wav")
+        self.music_model(
+            prompt = prompt,
+            lyrics = final_lyrics,
+            audio_duration = audio_duration,
+            infer_step = infer_step,
+            guidance_scale = guidance_scale,
+            save_path = output_path,
+            manual_seed = str(seed)
+        )
+        
+        audio_s3_key = f"{uuid.uuid4()}.wav"
+        s3_client.upload_file(output_path, bucket_name, audio_s3_key)
+        os.remove(output_path)
+
+        #Thumbnail Generation
+        thumbnail_prompt = f"{prompt}, album cover art, high detail"
+        image = self.image_pipe(prompt = thumbnail_prompt, num_inference_steps = 2, guidance_scale = 0.0).images[0]
+
+        image_output_path = os.path.join(output_dir, f"{uuid.uuid4()}.png")
+        image.save(image_output_path)
+
+        image_s3_key = f"{uuid.uuid4()}.png"
+        s3_client.upload_file(image_output_path, bucket_name, image_s3_key)
+        os.remove(image_output_path)
+
+        #Category Inference : hip-hop, rock, pop, indie, jazz, classical, electronic, country, reggae, blues
+        categories = self.generate_categories(description_for_categorization)
+
+        return GenerateMusicResponseS3(
+            s3_key = audio_s3_key,
+            cover_image_s3_key = image_s3_key,
+            categories = categories
+        )
+
     @modal.fastapi_endpoint(method="POST")
     def generate(self) -> GenerateMusicResponse:
         output_dir = "/temp/outputs"
