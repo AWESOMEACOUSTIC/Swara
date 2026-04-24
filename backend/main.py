@@ -3,6 +3,8 @@ from typing import List
 import uuid
 
 import requests
+from backend.prompts import PROMPT_GENERATOR_PROMPT
+from backend.prompts import LYRICS_GENERATOR_PROMPT
 import modal
 import os
 import boto3
@@ -96,6 +98,47 @@ class MusicGenServer:
         self.image_pipe.to("cuda")
     
     
+    # A helper function to run inference on the LLM with a given prompt and return the response
+    def prompt_qwen(self, question : str):
+        messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": question}]
+        text = self.tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+        )
+        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.llm_model.device)
+
+        generated_ids = self.llm_model.generate(
+        model_inputs.input_ids,
+        max_new_tokens=512
+        )
+        generated_ids = [
+        output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+
+        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        return response
+
+    
+    #generate a music prompt from a user description using the LLM
+    def generate_prompt(self, description : str):
+        #insert description into template
+        full_prompt = PROMPT_GENERATOR_PROMPT.format(user_prompt=description)
+        
+        #Run LLM inference and return the generated prompt
+        return self.prompt_qwen(full_prompt)
+
+
+    #generate lyrics from a user description using the LLM
+    def generate_lyrics(self, description : str):
+        #insert description into template
+        full_prompt = LYRICS_GENERATOR_PROMPT.format(description=description)
+        
+        #Run LLM inference and return the generated prompt
+        return self.prompt_qwen(full_prompt)
+
     @modal.fastapi_endpoint(method="POST")
     def generate(self) -> GenerateMusicResponse:
         output_dir = "/temp/outputs"
@@ -121,7 +164,13 @@ class MusicGenServer:
 
     @modal.fastapi_endpoint(method="POST")
     def generate_from_description(self, request : GenerateFromDescriptionRequest) -> GenerateMusicResponseS3:
-        pass
+        #Generating a prompt
+        prompt = self.generate_prompt(request.full_described_song)
+
+        #Generating lyrics
+        lyrics = ""
+        if not request.instrumental:
+            lyrics = self.generate_lyrics(request.full_described_song)
 
     
     @modal.fastapi_endpoint(method="POST")
@@ -131,6 +180,7 @@ class MusicGenServer:
     
     @modal.fastapi_endpoint(method="POST")
     def generate_with_described_lyrics(self, request : GenerateWithDescribedLyricsRequest) -> GenerateMusicResponseS3:
+        #Generating Lyrics
         pass
 
 
