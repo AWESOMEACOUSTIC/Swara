@@ -3,3 +3,6 @@ diffusers
 torch
 pydantic
 boto3
+requests
+modal
+torchcodec

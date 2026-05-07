@@ -3,8 +3,8 @@ from typing import List
 import uuid
 
 import requests
-from backend.prompts import PROMPT_GENERATOR_PROMPT
-from backend.prompts import LYRICS_GENERATOR_PROMPT
+from prompts import PROMPT_GENERATOR_PROMPT
+from prompts import LYRICS_GENERATOR_PROMPT
 import modal
 import os
 import boto3
@@ -13,13 +13,17 @@ from pydantic import BaseModel
 app = modal.App("swara")
 image = (
     modal.Image.debian_slim()
-    .apt_install("git")
+    .apt_install("git", "ffmpeg")
     .pip_install_from_requirements("requirements.txt")
-    .run_commands(["git clone https://github.com/ace-step/ACE-Step.git /tmp/ACE-Step", "cd /tmp/ACE-Step && pip install ."])
+    .run_commands([
+        "git clone https://github.com/ace-step/ACE-Step.git /tmp/ACE-Step",
+        "cd /tmp/ACE-Step && pip install .",
+        "pip install --upgrade transformers",
+    ])
     .env({"HF_HOME": "/.cache/huggingface"})
     .add_local_python_source("prompts")
 )
-
+ 
 
 modal_volume = modal.Volume.from_name("ace-step-models", create_if_missing=True)
 hf_volume = modal.Volume.from_name("qwen-hf-cache", create_if_missing=True)
@@ -59,10 +63,12 @@ class GenerateMusicResponse(BaseModel):
 
 @app.cls(
     image=image,
-    gpu = "Nvidia L4",
+    gpu = "L40S",
     volumes={"/models": modal_volume, "/.cache/huggingface": hf_volume},
-    secret=[swara_gen_secrets],
+    secrets=[swara_gen_secrets],
     scaledown_window=15,
+    startup_timeout=1800,
+    timeout=3600
 )
 
 class MusicGenServer:
@@ -175,7 +181,7 @@ class MusicGenServer:
             infer_step = infer_step,
             guidance_scale = guidance_scale,
             save_path = output_path,
-            manual_seed = str(seed)
+            manual_seeds = str(seed)
         )
         
         audio_s3_key = f"{uuid.uuid4()}.wav"
@@ -246,8 +252,8 @@ class MusicGenServer:
         return self.generate_and_upload_to_s3(
             prompt = request.prompt,
             lyrics = request.lyrics,
-            description_for_categorization = request.full_described_song,
-            **request.model_dump("prompt", "lyrics")
+            description_for_categorization = request.prompt,
+            **request.model_dump(exclude={"prompt", "lyrics"})
         )
 
     
@@ -256,7 +262,7 @@ class MusicGenServer:
         #Generating Lyrics
         return self.generate_and_upload_to_s3(
             prompt = request.prompt,
-            lyrics = request.lyrics,
+            lyrics = request.described_lyrics,
             description_for_categorization = request.prompt,
             **request.model_dump(exclude={"described_lyrics", "prompt"})
         )
@@ -265,13 +271,26 @@ class MusicGenServer:
 @app.local_entrypoint()
 def main():
     server = MusicGenServer()
-    endpoint_url = server.generate.get_web_url()
+    endpoint_url = server.generate_with_described_lyrics.get_web_url()
 
-    response = requests.post(endpoint_url)
+    request_data = GenerateWithDescribedLyricsRequest(
+        prompt= "Soothing emotional acoustic love song with warm acoustic guitar",
+        described_lyrics="""
+An emotional love story about heartbreak
+        """,
+        guidance_scale = 9.0,
+        audio_duration= 140.0,
+    )
+
+    payload = request_data.model_dump()
+
+    response = requests.post(endpoint_url, json=payload)
     response.raise_for_status()
-    result = GenerateMusicResponse(response.json())
+    result = GenerateMusicResponseS3(**response.json())
 
-    audio_bytes = base64.b64decode(result.audio_data)
-    output_filename = "generated.wav"
-    with open(output_filename, "wb") as f:
-        f.write(audio_bytes)
+    print(f"Success: {result.s3_key} , {result.cover_image_s3_key}, {result.categories}")
+
+    # audio_bytes = base64.b64decode(result.audio_data)
+    # output_filename = "generated.wav"
+    # with open(output_filename, "wb") as f:
+    #     f.write(audio_bytes)
