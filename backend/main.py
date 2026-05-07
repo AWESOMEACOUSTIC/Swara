@@ -208,7 +208,7 @@ class MusicGenServer:
             categories = categories
         )
 
-    @modal.fastapi_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST" , requires_proxy_auth=True)
     def generate(self) -> GenerateMusicResponse:
         output_dir = "/temp/outputs"
         os.makedirs(output_dir, exist_ok=True)
@@ -231,7 +231,7 @@ class MusicGenServer:
         return GenerateMusicResponse(audio_data=audio_b64)
     
 
-    @modal.fastapi_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST" , requires_proxy_auth=True)
     def generate_from_description(self, request : GenerateFromDescriptionRequest) -> GenerateMusicResponseS3:
         #Generating a prompt
         prompt = self.generate_prompt(request.full_described_song)
@@ -247,7 +247,7 @@ class MusicGenServer:
             **request.model_dump(exclude={"full_described_song"})
         )
     
-    @modal.fastapi_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST", requires_proxy_auth=True)
     def generate_with_lyrics(self, request : GenerateWithLyricsRequest) -> GenerateMusicResponseS3:
         return self.generate_and_upload_to_s3(
             prompt = request.prompt,
@@ -257,7 +257,7 @@ class MusicGenServer:
         )
 
     
-    @modal.fastapi_endpoint(method="POST")
+    @modal.fastapi_endpoint(method="POST", requires_proxy_auth=True)
     def generate_with_described_lyrics(self, request : GenerateWithDescribedLyricsRequest) -> GenerateMusicResponseS3:
         #Generating Lyrics
         return self.generate_and_upload_to_s3(
@@ -282,9 +282,14 @@ An emotional love story about heartbreak
         audio_duration= 140.0,
     )
 
+    headers = {
+        "Modal-Key" : "wk-0Zs3nO2tObJK36SneNG1yI",
+        "Modal-Secret" : "ws-DtoRul91nVLVDcvX9tIzc1"
+    }
+
     payload = request_data.model_dump()
 
-    response = requests.post(endpoint_url, json=payload)
+    response = requests.post(endpoint_url, json=payload, headers=headers)
     response.raise_for_status()
     result = GenerateMusicResponseS3(**response.json())
 
