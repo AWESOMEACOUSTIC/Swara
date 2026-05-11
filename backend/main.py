@@ -282,14 +282,9 @@ An emotional love story about heartbreak
         audio_duration= 140.0,
     )
 
-    headers = {
-        "Modal-Key" : "wk-0Zs3nO2tObJK36SneNG1yI",
-        "Modal-Secret" : "ws-DtoRul91nVLVDcvX9tIzc1"
-    }
-
     payload = request_data.model_dump()
 
-    response = requests.post(endpoint_url, json=payload, headers=headers)
+    response = requests.post(endpoint_url, json=payload)
     response.raise_for_status()
     result = GenerateMusicResponseS3(**response.json())
 
