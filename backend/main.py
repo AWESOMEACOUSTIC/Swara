@@ -278,8 +278,8 @@ def main():
         described_lyrics="""
 An emotional love story about heartbreak
         """,
-        guidance_scale = 9.0,
-        audio_duration= 140.0,
+        guidance_scale = 3.23,
+        audio_duration= 60.0,
     )
 
     payload = request_data.model_dump()

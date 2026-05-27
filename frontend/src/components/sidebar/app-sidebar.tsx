@@ -36,6 +36,7 @@ import Upgrade from "./upgrade"
 type AppSidebarProps = {
     children: ReactNode
     creditsSlot?: ReactNode
+    bottomSlot?: ReactNode
 }
 
 type NavItem = {
@@ -46,10 +47,8 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
     { href: "/", label: "Home", icon: Home },
-    { href: "/create", label: "Create", icon: Plus },
+    { href: "/create", label: "Generate", icon: Sparkles },
     { href: "/payments", label: "Payments", icon: CreditCard },
-    { href: "/generate", label: "Generate", icon: Sparkles },
-    { href: "/settings/account", label: "Account", icon: User },
 ]
 
 const formatSegmentLabel = (segment: string) =>
@@ -57,7 +56,7 @@ const formatSegmentLabel = (segment: string) =>
         .replace(/[-_]/g, " ")
         .replace(/\b\w/g, (char) => char.toUpperCase())
 
-export function AppSidebar({ children, creditsSlot }: AppSidebarProps) {
+export function AppSidebar({ children, creditsSlot, bottomSlot }: AppSidebarProps) {
     const pathname = usePathname()
     const segments = pathname.split("/").filter(Boolean)
     const rootCrumb =
@@ -139,8 +138,8 @@ export function AppSidebar({ children, creditsSlot }: AppSidebarProps) {
                 </SidebarFooter>
                 <SidebarRail />
             </Sidebar>
-            <SidebarInset>
-                <header className="flex h-12 items-center gap-2 border-b px-4">
+            <SidebarInset className="flex h-svh flex-col overflow-hidden">
+                <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger />
                     <Separator
                         orientation="vertical"
@@ -170,7 +169,10 @@ export function AppSidebar({ children, creditsSlot }: AppSidebarProps) {
                         </BreadcrumbList>
                     </Breadcrumb>
                 </header>
-                {children}
+                <div className="min-h-0 flex-1 overflow-hidden">
+                    {children}
+                </div>
+                {bottomSlot ? <div className="shrink-0">{bottomSlot}</div> : null}
             </SidebarInset>
         </SidebarProvider>
     )

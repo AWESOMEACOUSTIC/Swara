@@ -7,6 +7,7 @@ import { cn } from "~/lib/utils";
 import { AppSidebar } from "~/components/sidebar/app-sidebar"
 import { Credits } from "~/components/sidebar/credits"
 import { TooltipProvider } from "~/components/ui/tooltip"
+import SoundBar from "~/components/sound-bar";
 
 const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
 
@@ -33,7 +34,9 @@ export default function RootLayout({
         <Providers>
           <TooltipProvider>
             <Toaster richColors position="top-right" />
-            <AppSidebar creditsSlot={<Credits />}>{children}</AppSidebar>
+            <AppSidebar creditsSlot={<Credits />} bottomSlot={<SoundBar />}>
+              {children}
+            </AppSidebar>
           </TooltipProvider>
         </Providers>
       </body>
