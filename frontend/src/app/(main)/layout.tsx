@@ -5,6 +5,7 @@ import { type Metadata } from "next";
 import { Geist, Figtree } from "next/font/google";
 import { cn } from "~/lib/utils";
 import { AppSidebar } from "~/components/sidebar/app-sidebar"
+import { Credits } from "~/components/sidebar/credits"
 import { TooltipProvider } from "~/components/ui/tooltip"
 
 const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
@@ -32,7 +33,7 @@ export default function RootLayout({
         <Providers>
           <TooltipProvider>
             <Toaster richColors position="top-right" />
-            <AppSidebar>{children}</AppSidebar>
+            <AppSidebar creditsSlot={<Credits />}>{children}</AppSidebar>
           </TooltipProvider>
         </Providers>
       </body>
