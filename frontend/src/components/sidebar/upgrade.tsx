@@ -18,9 +18,9 @@ export default function Upgrade() {
 
         await checkout({
             products: [
-                "a209b547-608c-44e7-9178-4976a73c7135",
-                "11bce5cb-bfda-4c8f-afcc-4a512e2d7361",
-                "7ddf3794-111c-45ba-bd4c-36935d8ed81b",
+                "21d76a65-e8f0-4a91-8c22-e28abd996e5f",
+                "c32bc265-2c85-46ff-9b4c-8983cd31a144",
+                "4430936c-c278-4276-b8e1-7d51823af521",
             ],
         })
     }

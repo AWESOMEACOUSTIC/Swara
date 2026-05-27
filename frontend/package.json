@@ -26,6 +26,8 @@
     "@better-auth-ui/react": "^1.6.8",
     "@hugeicons/core-free-icons": "^4.1.4",
     "@hugeicons/react": "^1.1.6",
+    "@polar-sh/better-auth": "^1.8.4",
+    "@polar-sh/sdk": "^0.47.1",
     "@prisma/client": "^6.6.0",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tanstack/react-pacer": "^0.22.1",
