@@ -128,7 +128,40 @@ exports.Prisma.UserScalarFieldEnum = {
   emailVerified: 'emailVerified',
   image: 'image',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  credits: 'credits'
+};
+
+exports.Prisma.SongScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  s3Key: 's3Key',
+  thumbnailS3Key: 'thumbnailS3Key',
+  status: 'status',
+  instrumental: 'instrumental',
+  prompt: 'prompt',
+  lyrics: 'lyrics',
+  full_described_song: 'full_described_song',
+  described_lyrics: 'described_lyrics',
+  guidance_scale: 'guidance_scale',
+  infer_step: 'infer_step',
+  audio_duration: 'audio_duration',
+  seed: 'seed',
+  published: 'published',
+  listenCount: 'listenCount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  userId: 'userId'
+};
+
+exports.Prisma.LikeScalarFieldEnum = {
+  userId: 'userId',
+  songId: 'songId'
+};
+
+exports.Prisma.CategoryScalarFieldEnum = {
+  id: 'id',
+  name: 'name'
 };
 
 exports.Prisma.SessionScalarFieldEnum = {
@@ -185,6 +218,9 @@ exports.Prisma.NullsOrder = {
 
 exports.Prisma.ModelName = {
   User: 'User',
+  Song: 'Song',
+  Like: 'Like',
+  Category: 'Category',
   Session: 'Session',
   Account: 'Account',
   Verification: 'Verification'
