@@ -2,6 +2,24 @@ import { db } from "~/server/db";
 import { env } from "~/env";
 import { inngest } from "./client";
 
+const extractSongId = (payload?: Record<string, unknown>) => {
+  const directSongId =
+    (payload?.songId as string | undefined) ??
+    (payload?.song_id as string | undefined);
+
+  if (directSongId) return directSongId;
+
+  const nestedData = payload?.data as Record<string, unknown> | undefined;
+  const nestedSongId =
+    (nestedData?.songId as string | undefined) ??
+    (nestedData?.song_id as string | undefined);
+
+  if (nestedSongId) return nestedSongId;
+
+  const songObj = payload?.song as { id?: string } | undefined;
+  return songObj?.id;
+};
+
 export const generateSong = inngest.createFunction(
   {
     id: "generate-song",
@@ -10,9 +28,18 @@ export const generateSong = inngest.createFunction(
       key: "event.data.userId",
     },
     onFailure: async ({ event }) => {
+      const failureData =
+        (event?.data as Record<string, unknown> | undefined) ??
+        (event?.data?.event as { data?: Record<string, unknown> } | undefined)
+          ?.data;
+
+      const failureSongId = extractSongId(failureData);
+
+      if (!failureSongId) return;
+
       await db.song.update({
         where: {
-          id: (event?.data?.event?.data as { songId: string }).songId,
+          id: failureSongId,
         },
         data: {
           status: "failed",
@@ -22,10 +49,19 @@ export const generateSong = inngest.createFunction(
     triggers: [{ event: "generate-song-event" }],
   },
   async ({ event, step }) => {
-    const { songId } = event.data as {
-      songId: string;
-      userId: string;
-    };
+    const eventData = event?.data as Record<string, unknown> | undefined;
+    const nestedEventData =
+      (eventData?.event as { data?: Record<string, unknown> } | undefined)
+        ?.data;
+
+    const songId = extractSongId(eventData) ?? extractSongId(nestedEventData);
+
+    if (!songId) {
+      console.warn("Missing songId in event data", {
+        eventData: eventData ?? null,
+      });
+      return;
+    }
 
     const { userId, credits, endpoint, body } = await step.run(
       "check-credits",
@@ -43,12 +79,12 @@ export const generateSong = inngest.createFunction(
             },
             prompt: true,
             lyrics: true,
-            fullDescribedSong: true,
-            describedLyrics: true,
+            full_described_song: true,
+            described_lyrics: true,
             instrumental: true,
-            guidanceScale: true,
-            inferStep: true,
-            audioDuration: true,
+            guidance_scale: true,
+            infer_step: true,
+            audio_duration: true,
             seed: true,
           },
         });
@@ -69,18 +105,18 @@ export const generateSong = inngest.createFunction(
         let body: RequestBody = {};
 
         const commomParams = {
-          guidance_scale: song.guidanceScale ?? undefined,
-          infer_step: song.inferStep ?? undefined,
-          audio_duration: song.audioDuration ?? undefined,
+          guidance_scale: song.guidance_scale ?? undefined,
+          infer_step: song.infer_step ?? undefined,
+          audio_duration: song.audio_duration ?? undefined,
           seed: song.seed ?? undefined,
           instrumental: song.instrumental ?? undefined,
         };
 
         // Description of a song
-        if (song.fullDescribedSong) {
+        if (song.full_described_song) {
           endpoint = env.GENERATE_FROM_DESCRIPTION;
           body = {
-            full_described_song: song.fullDescribedSong,
+            full_described_song: song.full_described_song,
             ...commomParams,
           };
         }
@@ -96,10 +132,10 @@ export const generateSong = inngest.createFunction(
         }
 
         // Custom mode: Prompt + described lyrics
-        else if (song.describedLyrics && song.prompt) {
+        else if (song.described_lyrics && song.prompt) {
           endpoint = env.GENERATE_WITH_DESCRIBED_LYRICS;
           body = {
-            described_lyrics: song.describedLyrics,
+            described_lyrics: song.described_lyrics,
             prompt: song.prompt,
             ...commomParams,
           };
@@ -137,8 +173,8 @@ export const generateSong = inngest.createFunction(
         },
       });
 
-      await step.run("update-song-result", async () => {
-        const responseData = response.ok
+      const responseData = await step.run("update-song-result", async () => {
+        const payload = response.ok
           ? ((await response.json()) as {
               s3_key: string;
               cover_image_s3_key: string;
@@ -151,18 +187,18 @@ export const generateSong = inngest.createFunction(
             id: songId,
           },
           data: {
-            s3Key: responseData?.s3_key,
-            thumbnailS3Key: responseData?.cover_image_s3_key,
+            s3Key: payload?.s3_key,
+            thumbnailS3Key: payload?.cover_image_s3_key,
             status: response.ok ? "processed" : "failed",
           },
         });
 
-        if (responseData && responseData.categories.length > 0) {
+        if (payload && payload.categories.length > 0) {
           await db.song.update({
             where: { id: songId },
             data: {
               categories: {
-                connectOrCreate: responseData.categories.map((categoryName) => ({
+                connectOrCreate: payload.categories.map((categoryName) => ({
                   where: { name: categoryName },
                   create: { name: categoryName },
                 })),
@@ -170,12 +206,14 @@ export const generateSong = inngest.createFunction(
             },
           });
         }
+
+        return payload;
       });
 
-      return await step.run("deduct-credits", async () => {
+      await step.run("deduct-credits", async () => {
         if (!response.ok) return;
 
-        return await db.user.update({
+        await db.user.update({
           where: { id: userId },
           data: {
             credits: {
@@ -184,6 +222,8 @@ export const generateSong = inngest.createFunction(
           },
         });
       });
+
+      return responseData;
     } else {
       // Set song status "not enough credits"
       await step.run("set-status-no-credits", async () => {
