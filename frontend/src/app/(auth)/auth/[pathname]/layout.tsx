@@ -22,7 +22,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={cn(geist.variable, "font-sans", figtree.variable)}>
+    <html
+      lang="en"
+      className={cn(geist.variable, "font-sans", figtree.variable, "dark")}
+    >
       <body>
         <Providers>
           <Toaster richColors position="top-right" />
